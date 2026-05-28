@@ -1,0 +1,93 @@
+name: Android CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Compute app version
+        id: version
+        shell: bash
+        run: |
+          version_code="${GITHUB_RUN_NUMBER}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version_name="${GITHUB_REF_NAME#v}"
+          else
+            version_name="1.0.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version_code=${version_code}" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${version_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build debug APK
+        run: >
+          ./gradlew assembleDebug --stacktrace
+          -PciVersionCode=${{ steps.version.outputs.version_code }}
+          -PciVersionName=${{ steps.version.outputs.version_name }}
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/softrmk.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: softrmk.apk
+          path: app/build/outputs/apk/debug/softrmk.apk
+          archive: false
+
+      - name: Create or update GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag_name="${GITHUB_REF_NAME}"
+          apk_path="app/build/outputs/apk/debug/softrmk.apk"
+          release_title="SoftRMK ${tag_name}"
+          release_notes="Debug APK build for ${tag_name}."
+
+          if gh release view "${tag_name}" >/dev/null 2>&1; then
+            gh release upload "${tag_name}" "${apk_path}#softrmk.apk" --clobber
+          else
+            gh release create "${tag_name}" "${apk_path}#softrmk.apk" \
+              --title "${release_title}" \
+              --notes "${release_notes}"
+          fi
