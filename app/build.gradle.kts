@@ -15,8 +15,8 @@ android {
         applicationId = "com.softrmk"
         minSdk = 28
         targetSdk = 35
-        versionCode = ciVersionCode ?: 1
-        versionName = ciVersionName ?: "1.0"
+        versionCode = ciVersionCode ?: 2
+        versionName = ciVersionName ?: "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

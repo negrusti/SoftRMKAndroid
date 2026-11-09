@@ -66,13 +66,6 @@ jobs:
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/softrmk.apk
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: softrmk.apk
-          path: app/build/outputs/apk/debug/softrmk.apk
-          archive: false
-
       - name: Create or update GitHub release
         if: github.ref_type == 'tag'
         env:
@@ -91,3 +84,10 @@ jobs:
               --title "${release_title}" \
               --notes "${release_notes}"
           fi
+
+          # Keep only the latest release.
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' | while read -r old_tag; do
+            if [[ -n "${old_tag}" && "${old_tag}" != "${tag_name}" ]]; then
+              gh release delete "${old_tag}" --yes
+            fi
+          done
