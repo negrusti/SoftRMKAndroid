@@ -16,8 +16,9 @@ class RemoteKeyboardClient(
     private val topicAddress: String = RemoteKeyboardProtocol.OBSERVED_KEYBOARD_ADDRESS,
     private val onBrokerEvent: ((String) -> Unit)? = null,
     private val onConnectionClosed: (() -> Unit)? = null,
+    private val socketFactory: (host: String, port: Int) -> Socket = { host, port -> Socket(host, port) },
 ) : Closeable {
-    private val connection = Qpid010Connection(brokerUri, onBrokerEvent, onConnectionClosed)
+    private val connection = Qpid010Connection(brokerUri, onBrokerEvent, onConnectionClosed, socketFactory)
 
     fun connect() {
         connection.connect()
@@ -36,6 +37,7 @@ class RemoteKeyboardClient(
         private val brokerUri: String,
         private val onBrokerEvent: ((String) -> Unit)?,
         private val onConnectionClosed: (() -> Unit)?,
+        private val socketFactory: (host: String, port: Int) -> Socket,
     ) : Closeable {
         private var socket: Socket? = null
         private var input: InputStream? = null
@@ -54,7 +56,7 @@ class RemoteKeyboardClient(
             if (connected) return
             closeNotified = false
             val (host, port) = parseBrokerEndpoint(brokerUri)
-            val sock = Socket(host, port)
+            val sock = socketFactory(host, port)
             socket = sock
             input = sock.getInputStream()
             output = sock.getOutputStream()

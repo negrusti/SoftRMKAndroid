@@ -496,7 +496,8 @@ class MainViewModel(private val appContext: Context) : ViewModel() {
         val client = RemoteKeyboardClient(
             brokerUri,
             onBrokerEvent = ::logBrokerEvent,
-            onConnectionClosed = { handleBrokerDisconnected(brokerUri) }
+            onConnectionClosed = { handleBrokerDisconnected(brokerUri) },
+            socketFactory = { host, port -> com.softrmk.net.LocalNetworkSockets.connect(appContext, host, port) },
         )
         client.connect()
         return BrokerSession(brokerUri, client).also { liveSession = it }
